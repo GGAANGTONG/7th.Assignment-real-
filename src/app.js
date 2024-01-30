@@ -1,10 +1,13 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import UsersRouter from './routes/users.router.js';
+import cookieParser from 'cookie-parser';
+import jwt from 'jsonwebtoken';
 
 dotenv.config();
 const app = express();
 app.use(express.json());
+app.use(cookieParser());
 const PORT = process.env.PORT;
 
 app.get('/', (req, res) => {
