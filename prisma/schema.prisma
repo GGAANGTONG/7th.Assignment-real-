@@ -17,7 +17,7 @@ model Users {
 
   userInfo UserInfos?
   resume Resume[]
-
+  refreshToken RefreshToken?
   @@map("Users")
 }
 
@@ -30,6 +30,17 @@ model UserInfos {
   user Users @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@map("UserInfos")
+}
+
+model RefreshToken {
+  userId Int @id @unique @map("userId")
+  refreshToken String @map("RefreshToken")
+  ip String @map("Ip")
+  useragent String @map("UserAgent")
+
+  user Users @relation(fields: [userId], references: [userId], onDelete: Cascade)
+
+  @@map("RefreshToken")
 }
 
 model Resume {
