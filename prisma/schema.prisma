@@ -34,7 +34,7 @@ model UserInfos {
 
 model Resume {
   resumeId Int @id @default(autoincrement()) @map("resumeId")
-  userId Int @unique @map("UserId")
+  userId Int @map("UserId")
   title String @map("Title")
   introduction String @db.Text @map("Introduction")
   author String @map("Author")

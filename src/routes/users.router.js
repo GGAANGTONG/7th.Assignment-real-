@@ -3,7 +3,6 @@ import { prisma } from '../utils/prisma/index.js';
 import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import queryString from 'querystring';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -12,6 +11,8 @@ const router = express.Router();
 app.use(cookieParser());
 
 const ACCESS_TOKEN_SECRET_KEY = process.env.ACCESS_TOKEN_SECRET_KEY; // Access Token의 비밀 키를 정의합니다.
+const REFRESH_TOKEN_SECRET_KEY = process.env.REFRESH_TOKEN_SECRET_KEY;
+let tokenStorage = {};
 //회원가입 API
 router.post('/signUp', async (req, res, next) => {
   try {
@@ -78,15 +79,33 @@ router.post('/signIn', async (req, res, next) => {
       {
         userId: user.userId,
         email: user.email,
-
-        name: userInfo.name,
         password: user.password,
       },
       ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: '12h' }
+      { expiresIn: '10s' }
     );
+    const refreshToken = jwt.sign(
+      {
+        userId: user.userId,
+        email: user.email,
+        password: user.password,
+      },
+      REFRESH_TOKEN_SECRET_KEY,
+      { expiresIn: '3d' }
+    );
+    //객체 리터럴로 생성된 tokenStorage 객체에 refreshToken이란 key에 value를 집어넣어서 서버에 저장함
+    tokenStorage[refreshToken] = {
+      userId: user.userId,
+      email: user.email,
+      //사용자 ip
+      ip: req.ip,
+      //사용자 user agent 정보
+      userAgent: req.headers['user-agent'],
+    };
+
     //이거 쿠키 어디다 저장해야 되지?
     res.cookie('accessToken', accessToken);
+    res.cookie('refreshToken', refreshToken);
     return res.status(200).json({
       message: '로그인에 성공하였습니다.',
     });
@@ -121,18 +140,45 @@ router.get('/myInfo', authMiddleware, async (req, res, next) => {
     data: user,
   });
 });
-//모든 이력서 목록 조회 API
-router.post('/allResume', authMiddleware, async (req, res, next) => {
-  const allResume = await prisma.resume.findMany({
-    select: {
-      resumeId,
-      title,
-      introduction,
-      author,
-      status,
-      createdAt,
-    },
-  });
+//모든 이력서 목록 조회 API(미완)
+router.get('/allResume', authMiddleware, async (req, res, next) => {
+  try {
+    //직접 queryString을 지정 안해줘도 이렇게 하면 queryString이 url로 할당됨(url에는 직접 쳐야 함)
+    const { orderKey, orderValue } = req.query;
+    if (orderKey === undefined || orderKey === 0 || orderKey === null)
+      return res
+        .status(401)
+        .json({ message: '조회하고자 하는 이력서의 userId를 입력해 주세요.' });
+
+    let orderBy = '';
+    if (orderValue.toLowerCase() == 'asc') {
+      orderBy += 'asc';
+    } else if (orderValue.toLowerCase() == 'desc') {
+      orderBy += 'desc';
+    } else {
+      orderBy += 'desc';
+    }
+
+    const allResume = await prisma.resume.findMany({
+      where: {
+        userId: +orderKey,
+      },
+      select: {
+        resumeId,
+        title,
+        introduction,
+        author,
+        status,
+        createdAt,
+      },
+      orderBy,
+    });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(401)
+      .json({ message: '해당 유저의 이력서를 조회할 수 없습니다.' });
+  }
 });
 //이력서 상세 조회 API
 router.get('/myResume', authMiddleware, async (req, res, next) => {
@@ -162,12 +208,9 @@ router.post('/resume', authMiddleware, async (req, res, next) => {
   try {
     const { userId } = req.user;
     const { name } = req.userInfo;
-    const { title, introduction, author } = req.body;
+    const { title, introduction } = req.body;
 
     const resume = await prisma.resume.create({
-      // where: {
-      //   userId: +userId,
-      // },
       data: {
         userId: +userId,
         title,
@@ -177,7 +220,7 @@ router.post('/resume', authMiddleware, async (req, res, next) => {
     });
 
     return res.status(200).json({
-      data: resume.data,
+      data: resume,
     });
   } catch (error) {
     console.error(error);
@@ -220,6 +263,67 @@ router.put('/resume/:resumeId', authMiddleware, async (req, res, next) => {
     return res.status(404).json({ message: error.name });
   }
 });
-//이력서 삭제 API
+
+//이력서 삭제 전 확인 API(미완)
+
+//alert 띄우고 하는건 자바스크립트에서 하는 로직
+//node.js 단계에서 할려면 redirect등을 쓰던지 해서 라우터를 두개 써야 할듯(render/redirect권한 분할에도 쓸만함)
+router.post('/myResume/:resumeId', authMiddleware, async (req, res, next) => {
+  try {
+    const { userId } = req.user;
+    const { resumeId } = req.params;
+
+    const resume = await prisma.resume.findFirst({
+      where: {
+        userId: +userId,
+        resumeId: +resumeId,
+      },
+    });
+    if (!resume) throw new Error('이력서 조회에 실패하였습니다.');
+    else if (resume) {
+      return res
+        .status(201)
+        .send('정말 삭제하시겠다면 비밀번호를 입력해 주십시오.')
+        .redirect('/deleteMyResume/:resumeId');
+    }
+  } catch (error) {
+    console.log(error);
+    return res.status(404).json({
+      message: error.name,
+    });
+  }
+});
+
+//이력서 삭제 API(미완)
+router.delete(
+  '/deleteMyResume/:resumeId',
+  authMiddleware,
+  async (req, res, next) => {
+    const { userId } = req.user;
+    const { resumeId } = req.params;
+    const resume = await prisma.resume.findFirst({
+      where: {
+        userId: +userId,
+        resumeId: +resumeId,
+      },
+    });
+    const { password } = req.body;
+
+    if (password !== resume.password)
+      return res.status(409).send('잘못된 비밀번호입니다.');
+    else if (password === resume.password) {
+      await prisma.resume.delete({
+        where: {
+          userId: +userId,
+          resumeId: +resumeId,
+          password: password,
+        },
+      });
+    }
+    return res
+      .status(201)
+      .json({ message: '이력서가 성공적으로 삭제되었습니다.' });
+  }
+);
 
 export default router;
