@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import authMiddleware from '../middlewares/auth.middleware.js';
+import errorHandlerMiddleware from '../middlewares/error-handler.middleware.js';
 import axios from 'axios';
 import joi from 'joi';
 import dotenv from 'dotenv';
@@ -16,25 +17,37 @@ app.use(cookieParser());
 const ACCESS_TOKEN_SECRET_KEY = process.env.ACCESS_TOKEN_SECRET_KEY; // Access Token의 비밀 키를 정의합니다.
 const REFRESH_TOKEN_SECRET_KEY = process.env.REFRESH_TOKEN_SECRET_KEY;
 const validationTest = joi.object({
-  email: joi.string().email().max(20).required(),
-  password: joi.string().min(6).required(),
-  passwordCheck: joi.string(),
-  name: joi.string(),
+  email: joi.string().email(),
 });
 //회원가입 API
 router.post('/signUp', async (req, res, next) => {
   try {
-    const validation = await validationTest.validateAsync(req.body);
-    const { email, password, passwordCheck, name } = validation;
+    const { email, password, passwordCheck, name } = req.body;
+
+    const validation = await validationTest.validateAsync({ email });
+
+    if (!validation)
+      return res
+        .status(400)
+        .json({ error: '이메일 형식이 맞는지 확인해 주세요.' });
 
     const isExistUser = await prisma.users.findFirst({
       where: { email },
     });
 
-    if (isExistUser) throw new Error('이미 존재하는 회원정보입니다.');
+    if (isExistUser)
+      return res.status(409).json({ error: '이미 존재하는 회원정보입니다.' });
+
+    if (password.length < 6)
+      return res
+        .status(400)
+        .json({ error: '비밀번호는 최소 6자 이상이어야 합니다.' });
 
     if (password !== passwordCheck)
-      throw new Error('비밀번호를 다시 확인해 주세요.');
+      return res.status(400).json({
+        error: '비밀번호와 비밀번호 확인이 일치하는지 확인해 주세요.',
+      });
+
     //bcrypt를 통한 암호화
     const hashedPassword = await bcrypt.hash(password, 15);
     const user = await prisma.users.create({
@@ -51,39 +64,34 @@ router.post('/signUp', async (req, res, next) => {
       },
     });
 
-    return res.status(200).json({
+    return res.status(201).json({
       message: '계정이 성공적으로 생성되었습니다.',
       data: {
         email: email,
         name: name,
       },
     });
-    //에러 부분 손봐야 함
   } catch (error) {
-    console.error(error);
-    return res.json({
-      message: error.name,
-    });
+    next(error);
   }
 });
 //로그인 API
 router.post('/signIn', async (req, res, next) => {
   try {
-    const { email, password } = req.body; //email, password
+    const { email, password } = req.body;
     const user = await prisma.users.findFirst({
       where: {
         email,
       },
     });
-    const userInfo = await prisma.userInfos.findFirst({
-      where: {
-        userId: +user.userId,
-      },
-    });
-    if (!user) throw new Error('에 해당하는 에러가 발생하였습니다.');
+
+    if (!user)
+      return res
+        .status(404)
+        .json({ error: '로그인 정보를 다시 확인해 주세요' });
 
     if (!(await bcrypt.compare(password, user.password)))
-      return res.status(401).json({ message: '비밀번호가 일치하지 않습니다.' });
+      return res.status(400).json({ message: '비밀번호가 일치하지 않습니다.' });
     //토큰을 발급하는 API는 로그인 API 하나임. 그렇기 때문에 ACCESSTOKEN은 여기서 발급돼야 함
     const accessToken = jwt.sign(
       {
@@ -92,7 +100,7 @@ router.post('/signIn', async (req, res, next) => {
         password: user.password,
       },
       ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: '10s' }
+      { expiresIn: '12h' }
     );
     const refreshToken = jwt.sign(
       {
@@ -143,14 +151,14 @@ router.post('/signIn', async (req, res, next) => {
         currentToken: true,
       },
     });
-    res.cookie('accessToken', accessToken);
-    res.cookie('refreshToken', refreshToken);
+    res.cookie('accessToken', `Bearer ${accessToken}`);
+    res.cookie('refreshToken', `Bearer ${refreshToken}`);
     return res.status(200).json({
       message: '로그인에 성공하였습니다.',
     });
   } catch (error) {
     console.error(error);
-    res.status(404).json({ message: error.name });
+    next(error);
   }
 });
 
@@ -160,8 +168,10 @@ router.post('/SignIn-Kakao', async (req, res, next) => {
     //req.headers에 authorization이라는 값 자체가 없는데?
     //request를 보낼 떄 헤더에 설정을 해서 보내야 함
     //이건 우리 서버에서 정한 룰
-    const header = req.headers['authorization'];
-    const kakaoToken = header.split(' ')[1];
+    const header = req.headers['K-Authorization'];
+    const kakaoToken =
+      'Z4TeLayZ21zLz0KWXj3kKdv95DrLJ-55A40KPXRoAAABjWTwdYbo6jj-qNQmaA';
+    //  header.split(' ')[1];
 
     //이건 kapi url쪽의 서버에서 정한 룰임
     //axios는 fetch처럼 호출하는 api
@@ -181,9 +191,10 @@ router.post('/SignIn-Kakao', async (req, res, next) => {
       },
     });
 
-    if (!user) {
-      throw new Error('사용자 정보가 존재하지 않습니다.');
-    }
+    if (!user)
+      return res
+        .status(404)
+        .json({ error: '해당하는 사용자가 존재하지 않습니다.' });
 
     const accessToken = jwt.sign(
       {
@@ -192,7 +203,7 @@ router.post('/SignIn-Kakao', async (req, res, next) => {
         password: user.password,
       },
       ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: '10s' }
+      { expiresIn: '12h' }
     );
     const refreshToken = jwt.sign(
       {
@@ -243,14 +254,14 @@ router.post('/SignIn-Kakao', async (req, res, next) => {
         currentToken: true,
       },
     });
-    res.cookie('accessToken', accessToken);
-    res.cookie('refreshToken', refreshToken);
+
+    res.cookie('accessToken', `Bearer ${accessToken}`);
+    res.cookie('refreshToken', `Bearer ${refreshToken}`);
     return res.status(200).json({
       message: '로그인에 성공하였습니다.',
     });
   } catch (error) {
-    console.error(error);
-    res.status(404).json({ message: error.name });
+    next(error);
   }
 });
 //accessToken 재발급 확인 API
@@ -269,41 +280,45 @@ router.post('/accessTokenReacquire', authMiddleware, async (req, res, next) => {
       },
     });
     if (!accessTokenList) {
-      throw new Error('다시 로그인해 보시기 바랍니다.');
+      res.status(401).json({ error: '잘못된 접근입니다.' });
     }
-    return res.status(201).json({
+    return res.status(200).json({
       message: '회원님의 현재 accessToken 재발급 목록입니다(로그인 시 초기화).',
       data: accessTokenList,
     });
   } catch (error) {
-    console.error(error);
+    next(error);
   }
 });
 
 //내 정보 조회API
 router.get('/myInfo', authMiddleware, async (req, res, next) => {
   //인증미들웨어를 거친 req.locals.user를 객체구조분해할당을 해서 userId만 추출함
-  const { userId } = req.locals.user;
-  const user = await prisma.users.findFirst({
-    where: {
-      //req로 오는건 죄다 json 타입으로 오니까 기본적으로 문자형임
-      userId: +userId,
-    },
-    select: {
-      userId: true,
-      email: true,
-      //이중 셀렉트 문법
-      userInfo: {
-        select: {
-          name: true,
+  try {
+    const { userId } = req.locals.user;
+    const user = await prisma.users.findFirst({
+      where: {
+        //req로 오는건 죄다 json 타입으로 오니까 기본적으로 문자형임
+        userId: +userId,
+      },
+      select: {
+        userId: true,
+        email: true,
+        //이중 셀렉트 문법
+        userInfo: {
+          select: {
+            name: true,
+          },
         },
       },
-    },
-  });
-  return res.status(200).json({
-    message: '회원님의 정보입니다.',
-    data: user,
-  });
+    });
+    return res.status(200).json({
+      message: '회원님의 정보입니다.',
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
 });
 
 //회원정보 삭제 API
@@ -317,13 +332,10 @@ router.delete('/deleteMyInfo', authMiddleware, async (req, res, next) => {
     });
 
     return res
-      .status(201)
+      .status(200)
       .json({ message: '회원정보가 성공적으로 삭제되었습니다.' });
   } catch (error) {
-    console.error(error);
-    return res.status.json({
-      errorMessage: error.name,
-    });
+    next(error);
   }
 });
 

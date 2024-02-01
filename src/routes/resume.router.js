@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from '../utils/prisma/index.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
+import errorHandlerMiddleware from '../middlewares/error-handler.middleware.js';
 
 const app = express();
 const router = express.Router();
@@ -38,8 +39,11 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
           createdAt: orderBy,
         },
       });
-      if (!allResume) throw new Error('사용자의 이력서가 존재하지 않습니다.');
-      return res.status(201).json({
+      if (!allResume)
+        return res
+          .status(404)
+          .json({ error: '해당하는 이력서가 존재하지 않습니다.' });
+      return res.status(200).json({
         data: allResume,
       });
     } else if (email.includes('recruit')) {
@@ -59,18 +63,21 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
           createdAt: orderBy,
         },
       });
-      if (!allResume) throw new Error('사용자의 이력서가 존재하지 않습니다.');
-      return res.status(201).json({
+      if (!allResume)
+        return res
+          .status(404)
+          .json({ error: '해당하는 이력서가 존재하지 않습니다.' });
+      return res.status(200).json({
         data: allResume,
       });
     } else if (orderKey === undefined || +orderKey === 0 || orderKey === null) {
       return res
-        .status(401)
-        .json({ message: 'orderKey에 본인의 userId를 입력해 주세요.' });
+        .status(400)
+        .json({ error: 'orderKey에 본인의 userId를 입력해 주세요.' });
     } else if (+orderKey !== +userId) {
       return res
-        .status(419)
-        .json({ message: 'orderKey가 본인의 userId가 맞는지 확인해 주세요.' });
+        .status(400)
+        .json({ error: 'orderKey가 본인의 userId가 맞는지 확인해 주세요.' });
     } else {
       const allResume = await prisma.resume.findMany({
         where: {
@@ -89,16 +96,16 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
           createdAt: orderBy,
         },
       });
-      if (!allResume) throw new Error('사용자의 이력서가 존재하지 않습니다.');
-      return res.status(201).json({
+      if (!allResume)
+        return res
+          .status(404)
+          .json({ error: '해당하는 이력서가 존재하지 않습니다.' });
+      return res.status(200).json({
         data: allResume,
       });
     }
   } catch (error) {
-    console.error(error);
-    return res
-      .status(401)
-      .json({ message: '해당 유저의 이력서를 조회할 수 없습니다.' });
+    next(error);
   }
 });
 
@@ -140,8 +147,7 @@ router.get('/myResume/:resumeId', authMiddleware, async (req, res, next) => {
       return res.status(200).json({ data: resume });
     }
   } catch (error) {
-    console.error(error);
-    return res.status(404).json({ message: error.name });
+    next(error);
   }
 });
 //이력서 생성 API(ㅇ)
@@ -164,8 +170,7 @@ router.post('/resume', authMiddleware, async (req, res, next) => {
       data: resume,
     });
   } catch (error) {
-    console.error(error);
-    return res.status(400).json({ message: error.name });
+    next(error);
   }
 });
 //이력서 수정 API(ㅇ)
@@ -183,7 +188,8 @@ router.put('/resume/:resumeId', authMiddleware, async (req, res, next) => {
         },
       });
 
-      if (!resume) throw new Error('해당하는 이력서가 존재하지 않습니다.');
+      if (!resume)
+        return res.status(404).json({ error: '이력서 조회에 실패하였습니다.' });
 
       const updatedResume = await prisma.resume.update({
         where: {
@@ -195,7 +201,7 @@ router.put('/resume/:resumeId', authMiddleware, async (req, res, next) => {
           introduction,
         },
       });
-      return res.status(200).json({
+      return res.status(201).json({
         message: '이력서 수정이 완료되었습니다.',
         updatedData: updatedResume.data,
       });
@@ -205,7 +211,8 @@ router.put('/resume/:resumeId', authMiddleware, async (req, res, next) => {
           resumeId: +resumeId,
         },
       });
-      if (!resume) throw new Error('해당하는 이력서가 존재하지 않습니다.');
+      if (!resume)
+        return res.status(404).json({ error: '이력서 조회에 실패하였습니다.' });
       const updatedResume = await prisma.resume.update({
         where: {
           resumeId: +resumeId,
@@ -214,14 +221,13 @@ router.put('/resume/:resumeId', authMiddleware, async (req, res, next) => {
           status,
         },
       });
-      return res.status(200).json({
+      return res.status(201).json({
         message: '이력서 현황 수정이 완료되었습니다.',
         updatedData: updatedResume.data,
       });
     }
   } catch (error) {
-    console.error(error);
-    return res.status(404).json({ message: error.name });
+    next(error);
   }
 });
 
@@ -230,18 +236,27 @@ router.delete(
   '/deleteMyResume/:resumeId',
   authMiddleware,
   async (req, res, next) => {
-    const { userId } = req.locals.user;
-    const { resumeId } = req.params;
-    const resume = await prisma.resume.delete({
-      where: {
-        userId: +userId,
-        resumeId: +resumeId,
-      },
-    });
+    try {
+      const { userId } = req.locals.user;
+      const { resumeId } = req.params;
+      const resume = await prisma.resume.delete({
+        where: {
+          userId: +userId,
+          resumeId: +resumeId,
+        },
+      });
 
-    return res
-      .status(201)
-      .json({ message: '이력서가 성공적으로 삭제되었습니다.' });
+      if (!resume)
+        return res
+          .status(404)
+          .json({ error: '해당하는 이력서가 존재하지 않습니다.' });
+
+      return res
+        .status(200)
+        .json({ message: '이력서가 성공적으로 삭제되었습니다.' });
+    } catch (error) {
+      next(error);
+    }
   }
 );
 
