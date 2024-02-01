@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import newAccessToken from '../middlewares/auth.middleware.js';
+import axios from 'axios';
 import joi from 'joi';
 import dotenv from 'dotenv';
 
@@ -154,6 +154,116 @@ router.post('/signIn', async (req, res, next) => {
   }
 });
 
+//카카오 로그인 연동 API
+router.post('/SignIn-Kakao', async (req, res, next) => {
+  try {
+    //req.headers에 authorization이라는 값 자체가 없는데?
+    //request를 보낼 떄 헤더에 설정을 해서 보내야 함
+    //이건 우리 서버에서 정한 룰
+    const header = req.headers['authorization'];
+    ///////header.split(' ')[1];
+    const kakaoToken =
+      'ExsBRHlLc2iCiKG-YVXuD1IZVzJTawtteHoKPXLqAAABjWOiaNbo6jj-qNQmaA';
+
+    //이건 kapi url쪽의 서버에서 정한 룰임
+    //axios는 fetch처럼 호출하는 api
+    //axios
+    //axios를 통과하면 카카오 개발자 페이지에 있던 예제에 해당하는 json 정보들이 들어옴
+    const result = await axios.get('https://kapi.kakao.com/v2/user/me', {
+      headers: {
+        Authorization: `Bearer ${kakaoToken}`,
+      },
+    });
+    const { data } = result;
+    console.log('gookbab', data);
+    const name = data.properties.nickname;
+
+    if (!name) throw new Error('KEY_ERROR', 400);
+
+    const userInfo = await prisma.userInfos.findFirst({
+      where: {
+        name,
+      },
+    });
+
+    if (!userInfo) {
+      throw new Error('사용자 정보가 존재하지 않습니다.');
+    }
+
+    const user = await prisma.users.findFirst({
+      where: {
+        userId: +userInfo.userId,
+      },
+    });
+
+    const accessToken = jwt.sign(
+      {
+        userId: user.userId,
+        email: user.email,
+        password: user.password,
+      },
+      ACCESS_TOKEN_SECRET_KEY,
+      { expiresIn: '12h' }
+    );
+    const refreshToken = jwt.sign(
+      {
+        userId: user.userId,
+        email: user.email,
+        password: user.password,
+      },
+      REFRESH_TOKEN_SECRET_KEY,
+      { expiresIn: '7d' }
+    );
+    //객체 리터럴로 생성된 tokenStorage 객체에 refreshToken이란 key에 value를 집어넣어서 서버에 저장함
+    //module.exports = {} 로 모듈화해서 쓰면 될듯
+    // tokenStorage[refreshToken] = {
+    //   userId: user.userId,
+    //   email: user.email,
+    //   //사용자 ip
+    //   ip: req.ip,
+    //   //사용자 user agent 정보
+    //   userAgent: req.headers['user-agent'],
+    // };
+    const DBrefreshToken = await prisma.refreshToken.findFirst({
+      where: {
+        userId: user.userId,
+      },
+    });
+    if (DBrefreshToken) {
+      await prisma.refreshToken.delete({
+        where: {
+          userId: user.userId,
+        },
+      });
+    }
+    //아, 내가 default값 설정을 안해놔서 알아서 안들어오는구나!
+    await prisma.refreshToken.create({
+      data: {
+        userId: user.userId,
+        refreshToken,
+        ip: req.ip,
+        useragent: req.headers['user-agent'],
+      },
+    });
+    await prisma.accessToken.create({
+      data: {
+        userId: user.userId,
+        refreshToken,
+        accessToken,
+        reacquired: false,
+        currentToken: true,
+      },
+    });
+    res.cookie('accessToken', accessToken);
+    res.cookie('refreshToken', refreshToken);
+    return res.status(200).json({
+      message: '로그인에 성공하였습니다.',
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(404).json({ message: error.name });
+  }
+});
 //accessToken 재발급 확인 API
 router.post('/accessTokenReacquire', authMiddleware, async (req, res, next) => {
   try {
@@ -173,12 +283,14 @@ router.post('/accessTokenReacquire', authMiddleware, async (req, res, next) => {
       throw new Error('다시 로그인해 보시기 바랍니다.');
     }
     return res.status(201).json({
+      message: '회원님의 현재 accessToken 재발급 목록입니다(로그인 시 초기화).',
       data: accessTokenList,
     });
   } catch (error) {
     console.error(error);
   }
 });
+
 //내 정보 조회API
 router.get('/myInfo', authMiddleware, async (req, res, next) => {
   //인증미들웨어를 거친 req.locals.user를 객체구조분해할당을 해서 userId만 추출함
