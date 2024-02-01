@@ -6,16 +6,12 @@ import errorHandlerMiddleware from '../middlewares/error-handler.middleware.js';
 const app = express();
 const router = express.Router();
 
-//이력서 목록 조회 API(O)
+//이력서 목록 조회 API
 router.get('/allResume', authMiddleware, async (req, res, next) => {
   try {
-    //직접 queryString을 지정 안해줘도 이렇게 하면 queryString이 url로 할당됨(url에는 직접 쳐야 함)
     const { orderKey, orderValue } = req.query;
     const { userId, email } = req.locals.user;
 
-    //let orderBy = ''로 전역변수에 선언해버리니까, 지역 스코프에서 아무리 값을 바꿔놔도 나오면서 다 초기화돼버렸네
-    //그게 아니라 걍 undefined가 돼버렸네 ㅋㅋㅋ
-    //호출을 안한거였음...
     let orderBy = '';
     (() => {
       if (orderValue.toLowerCase() === 'asc') {
@@ -24,7 +20,7 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
         return (orderBy = orderBy + 'desc');
       }
     })();
-    //include아님, includes임
+
     if (+orderKey === 0 && email.includes('recruit')) {
       const allResume = await prisma.resume.findMany({
         select: {
@@ -91,7 +87,7 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
           status: true,
           createdAt: true,
         },
-        //orderBy 문법만 제대로 잡으면 댐!
+
         orderBy: {
           createdAt: orderBy,
         },
@@ -109,7 +105,7 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
   }
 });
 
-//이력서 상세 조회 API(ㅇ)
+//이력서 상세 조회 API
 router.get('/myResume/:resumeId', authMiddleware, async (req, res, next) => {
   try {
     const { userId, email } = req.locals.user;
@@ -150,7 +146,7 @@ router.get('/myResume/:resumeId', authMiddleware, async (req, res, next) => {
     next(error);
   }
 });
-//이력서 생성 API(ㅇ)
+//이력서 생성 API
 router.post('/resume', authMiddleware, async (req, res, next) => {
   try {
     const { userId } = req.locals.user;
@@ -173,7 +169,7 @@ router.post('/resume', authMiddleware, async (req, res, next) => {
     next(error);
   }
 });
-//이력서 수정 API(ㅇ)
+//이력서 수정 API
 router.put('/resume/:resumeId', authMiddleware, async (req, res, next) => {
   try {
     const { userId, email } = req.locals.user;
@@ -231,7 +227,7 @@ router.put('/resume/:resumeId', authMiddleware, async (req, res, next) => {
   }
 });
 
-//이력서 삭제 API(ㅇ)
+//이력서 삭제 API
 router.delete(
   '/deleteMyResume/:resumeId',
   authMiddleware,
