@@ -110,7 +110,7 @@ export default async function (req, res, next) {
           password: verifiedRefreshToken.password,
         },
         ACCESS_TOKEN_SECRET_KEY,
-        { expiresIn: '12h' }
+        { expiresIn: '10s' }
       );
 
       const availableAccessToken = await prisma.accessToken.findFirst({

@@ -105,23 +105,40 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
 //이력서 상세 조회 API(ㅇ)
 router.get('/myResume/:resumeId', authMiddleware, async (req, res, next) => {
   try {
-    const { userId } = req.locals.user;
+    const { userId, email } = req.locals.user;
     const { resumeId } = req.params;
-    const resume = await prisma.resume.findFirst({
-      where: {
-        userId: +userId,
-        resumeId: +resumeId,
-      },
-      select: {
-        resumeId: true,
-        title: true,
-        introduction: true,
-        author: true,
-        status: true,
-        createdAt: true,
-      },
-    });
-    return res.status(200).json({ data: resume });
+    if (email.includes('recruit')) {
+      const resume = await prisma.resume.findFirst({
+        where: {
+          resumeId: +resumeId,
+        },
+        select: {
+          resumeId: true,
+          title: true,
+          introduction: true,
+          author: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+      return res.status(200).json({ data: resume });
+    } else {
+      const resume = await prisma.resume.findFirst({
+        where: {
+          userId: +userId,
+          resumeId: +resumeId,
+        },
+        select: {
+          resumeId: true,
+          title: true,
+          introduction: true,
+          author: true,
+          status: true,
+          createdAt: true,
+        },
+      });
+      return res.status(200).json({ data: resume });
+    }
   } catch (error) {
     console.error(error);
     return res.status(404).json({ message: error.name });

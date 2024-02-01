@@ -92,7 +92,7 @@ router.post('/signIn', async (req, res, next) => {
         password: user.password,
       },
       ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: '12h' }
+      { expiresIn: '10s' }
     );
     const refreshToken = jwt.sign(
       {
@@ -161,9 +161,7 @@ router.post('/SignIn-Kakao', async (req, res, next) => {
     //request를 보낼 떄 헤더에 설정을 해서 보내야 함
     //이건 우리 서버에서 정한 룰
     const header = req.headers['authorization'];
-    ///////header.split(' ')[1];
-    const kakaoToken =
-      'ExsBRHlLc2iCiKG-YVXuD1IZVzJTawtteHoKPXLqAAABjWOiaNbo6jj-qNQmaA';
+    const kakaoToken = header.split(' ')[1];
 
     //이건 kapi url쪽의 서버에서 정한 룰임
     //axios는 fetch처럼 호출하는 api
@@ -175,26 +173,17 @@ router.post('/SignIn-Kakao', async (req, res, next) => {
       },
     });
     const { data } = result;
-    console.log('gookbab', data);
-    const name = data.properties.nickname;
-
-    if (!name) throw new Error('KEY_ERROR', 400);
-
-    const userInfo = await prisma.userInfos.findFirst({
-      where: {
-        name,
-      },
-    });
-
-    if (!userInfo) {
-      throw new Error('사용자 정보가 존재하지 않습니다.');
-    }
+    const email = data.kakao_account.email;
 
     const user = await prisma.users.findFirst({
       where: {
-        userId: +userInfo.userId,
+        email,
       },
     });
+
+    if (!user) {
+      throw new Error('사용자 정보가 존재하지 않습니다.');
+    }
 
     const accessToken = jwt.sign(
       {
@@ -203,7 +192,7 @@ router.post('/SignIn-Kakao', async (req, res, next) => {
         password: user.password,
       },
       ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: '12h' }
+      { expiresIn: '10s' }
     );
     const refreshToken = jwt.sign(
       {
@@ -318,7 +307,7 @@ router.get('/myInfo', authMiddleware, async (req, res, next) => {
 });
 
 //회원정보 삭제 API
-router.delete('/deleteMyResume', authMiddleware, async (req, res, next) => {
+router.delete('/deleteMyInfo', authMiddleware, async (req, res, next) => {
   try {
     const { userId } = req.locals.user;
     await prisma.users.delete({
