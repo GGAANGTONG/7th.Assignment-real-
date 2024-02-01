@@ -17,7 +17,9 @@ model Users {
 
   userInfo UserInfos?
   resume Resume[]
+  accessToken AccessToken[]
   refreshToken RefreshToken?
+
   @@map("Users")
 }
 
@@ -34,13 +36,29 @@ model UserInfos {
 
 model RefreshToken {
   userId Int @id @unique @map("userId")
-  refreshToken String @map("RefreshToken")
+  refreshToken String @map("RefreshToken") @unique
   ip String @map("Ip")
   useragent String @map("UserAgent")
 
+
+  accessToken AccessToken[]
   user Users @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@map("RefreshToken")
+}
+
+model AccessToken {
+  accessTokenId Int @id @default(autoincrement()) @map("AccessTokenId") 
+  userId Int @map("UserId")
+  accessToken String @map("AccessToken")
+  reacquired Boolean @map("Reacquired")
+  currentToken Boolean @map("CurrentToken")
+  refreshToken String @map("RefreshToken")
+
+
+  user Users @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  refreshTokens RefreshToken @relation(fields: [refreshToken], references: [refreshToken], onDelete: Cascade)
+  @@map("AccessToken")
 }
 
 model Resume {

@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import authMiddleware from '../middlewares/auth.middleware.js';
+import newAccessToken from '../middlewares/auth.middleware.js';
 import joi from 'joi';
 import dotenv from 'dotenv';
 
@@ -91,7 +92,7 @@ router.post('/signIn', async (req, res, next) => {
         password: user.password,
       },
       ACCESS_TOKEN_SECRET_KEY,
-      { expiresIn: '3h' }
+      { expiresIn: '12h' }
     );
     const refreshToken = jwt.sign(
       {
@@ -124,15 +125,24 @@ router.post('/signIn', async (req, res, next) => {
         },
       });
     }
+    //아, 내가 default값 설정을 안해놔서 알아서 안들어오는구나!
     await prisma.refreshToken.create({
       data: {
         userId: user.userId,
-        refreshToken: refreshToken,
+        refreshToken,
         ip: req.ip,
         useragent: req.headers['user-agent'],
       },
     });
-    //이거 쿠키 어디다 저장해야 되지?
+    await prisma.accessToken.create({
+      data: {
+        userId: user.userId,
+        refreshToken,
+        accessToken,
+        reacquired: false,
+        currentToken: true,
+      },
+    });
     res.cookie('accessToken', accessToken);
     res.cookie('refreshToken', refreshToken);
     return res.status(200).json({
@@ -144,10 +154,35 @@ router.post('/signIn', async (req, res, next) => {
   }
 });
 
+//accessToken 재발급 확인 API
+router.post('/accessTokenReacquire', authMiddleware, async (req, res, next) => {
+  try {
+    const { userId } = req.locals.user;
+    const accessTokenList = await prisma.accessToken.findMany({
+      where: {
+        userId: +userId,
+      },
+      select: {
+        userId: true,
+        accessTokenId: true,
+        reacquired: true,
+        currentToken: true,
+      },
+    });
+    if (!accessTokenList) {
+      throw new Error('다시 로그인해 보시기 바랍니다.');
+    }
+    return res.status(201).json({
+      data: accessTokenList,
+    });
+  } catch (error) {
+    console.error(error);
+  }
+});
 //내 정보 조회API
 router.get('/myInfo', authMiddleware, async (req, res, next) => {
-  //인증미들웨어를 거친 req.user를 객체구조분해할당을 해서 userId만 추출함
-  const { userId } = req.user;
+  //인증미들웨어를 거친 req.locals.user를 객체구조분해할당을 해서 userId만 추출함
+  const { userId } = req.locals.user;
   const user = await prisma.users.findFirst({
     where: {
       //req로 오는건 죄다 json 타입으로 오니까 기본적으로 문자형임
@@ -173,7 +208,7 @@ router.get('/myInfo', authMiddleware, async (req, res, next) => {
 //회원정보 삭제 API
 router.delete('/deleteMyResume', authMiddleware, async (req, res, next) => {
   try {
-    const { userId } = req.user;
+    const { userId } = req.locals.user;
     await prisma.users.delete({
       where: {
         userId: +userId,

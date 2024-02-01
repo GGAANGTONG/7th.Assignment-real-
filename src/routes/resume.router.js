@@ -10,7 +10,7 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
   try {
     //직접 queryString을 지정 안해줘도 이렇게 하면 queryString이 url로 할당됨(url에는 직접 쳐야 함)
     const { orderKey, orderValue } = req.query;
-    const { userId, email } = req.user;
+    const { userId, email } = req.locals.user;
 
     //let orderBy = ''로 전역변수에 선언해버리니까, 지역 스코프에서 아무리 값을 바꿔놔도 나오면서 다 초기화돼버렸네
     //그게 아니라 걍 undefined가 돼버렸네 ㅋㅋㅋ
@@ -34,7 +34,6 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
           status: true,
           createdAt: true,
         },
-        //orderBy 문법만 제대로 잡으면 댐!
         orderBy: {
           createdAt: orderBy,
         },
@@ -56,7 +55,6 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
           status: true,
           createdAt: true,
         },
-        //orderBy 문법만 제대로 잡으면 댐!
         orderBy: {
           createdAt: orderBy,
         },
@@ -107,7 +105,7 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
 //이력서 상세 조회 API(ㅇ)
 router.get('/myResume/:resumeId', authMiddleware, async (req, res, next) => {
   try {
-    const { userId } = req.user;
+    const { userId } = req.locals.user;
     const { resumeId } = req.params;
     const resume = await prisma.resume.findFirst({
       where: {
@@ -132,8 +130,8 @@ router.get('/myResume/:resumeId', authMiddleware, async (req, res, next) => {
 //이력서 생성 API(ㅇ)
 router.post('/resume', authMiddleware, async (req, res, next) => {
   try {
-    const { userId } = req.user;
-    const { name } = req.userInfo;
+    const { userId } = req.locals.user;
+    const { name } = req.locals.userInfo;
     const { title, introduction } = req.body;
 
     const resume = await prisma.resume.create({
@@ -156,7 +154,7 @@ router.post('/resume', authMiddleware, async (req, res, next) => {
 //이력서 수정 API(ㅇ)
 router.put('/resume/:resumeId', authMiddleware, async (req, res, next) => {
   try {
-    const { userId, email } = req.user;
+    const { userId, email } = req.locals.user;
     const { resumeId } = req.params;
     const { title, introduction, status } = req.body;
 
@@ -215,7 +213,7 @@ router.delete(
   '/deleteMyResume/:resumeId',
   authMiddleware,
   async (req, res, next) => {
-    const { userId } = req.user;
+    const { userId } = req.locals.user;
     const { resumeId } = req.params;
     const resume = await prisma.resume.delete({
       where: {
