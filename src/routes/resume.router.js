@@ -27,7 +27,19 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
           resumeId: true,
           title: true,
           introduction: true,
-          author: true,
+          author: {
+            select: {
+              users: {
+                select: {
+                  userInfo: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
           status: true,
           createdAt: true,
         },
@@ -51,7 +63,19 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
           resumeId: true,
           title: true,
           introduction: true,
-          author: true,
+          author: {
+            select: {
+              users: {
+                select: {
+                  userInfo: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
           status: true,
           createdAt: true,
         },
@@ -83,7 +107,19 @@ router.get('/allResume', authMiddleware, async (req, res, next) => {
           resumeId: true,
           title: true,
           introduction: true,
-          author: true,
+          author: {
+            select: {
+              users: {
+                select: {
+                  userInfo: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
           status: true,
           createdAt: true,
         },
@@ -119,7 +155,19 @@ router.get('/myResume/:resumeId', authMiddleware, async (req, res, next) => {
           resumeId: true,
           title: true,
           introduction: true,
-          author: true,
+          author: {
+            select: {
+              users: {
+                select: {
+                  userInfo: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
           status: true,
           createdAt: true,
         },
@@ -135,7 +183,19 @@ router.get('/myResume/:resumeId', authMiddleware, async (req, res, next) => {
           resumeId: true,
           title: true,
           introduction: true,
-          author: true,
+          author: {
+            select: {
+              users: {
+                select: {
+                  userInfo: {
+                    select: {
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
           status: true,
           createdAt: true,
         },
