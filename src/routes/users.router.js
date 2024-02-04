@@ -5,6 +5,8 @@ import bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import authMiddleware from '../middlewares/auth.middleware.js';
 import errorHandlerMiddleware from '../middlewares/error-handler.middleware.js';
+import { transporter } from './nodemailer.js';
+import info from './nodemailer.js';
 import axios from 'axios';
 import joi from 'joi';
 import dotenv from 'dotenv';
@@ -93,6 +95,14 @@ router.post('/signIn', async (req, res, next) => {
 
     if (!(await bcrypt.compare(password, user.password)))
       return res.status(400).json({ message: '비밀번호가 일치하지 않습니다.' });
+
+    //nodemailer을 통한 로그인 인증
+
+    transporter;
+
+    const generatedAuthNumber = Math.floor(Math.random() * 10000 + 1);
+
+    info(email, generatedAuthNumber);
 
     const accessToken = jwt.sign(
       {

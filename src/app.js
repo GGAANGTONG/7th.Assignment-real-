@@ -5,6 +5,7 @@ import ResumeRouter from './routes/resume.router.js';
 import errorHandlerMiddleware from './middlewares/error-handler.middleware.js';
 import cookieParser from 'cookie-parser';
 import jwt from 'jsonwebtoken';
+import swaggerUi from 'swagger-ui-express';
 
 dotenv.config();
 const app = express();

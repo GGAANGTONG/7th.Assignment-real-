@@ -17,8 +17,12 @@
     "joi": "^17.12.1",
     "jsonwebtoken": "^9.0.2",
     "mysql2": "^3.9.1",
+    "nodemailer": "^6.9.9",
     "nodemon": "^3.0.3",
-    "prisma": "^5.8.1"
+    "openapi-types": "^7",
+    "prisma": "^5.8.1",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.0"
   },
   "devDependencies": {
     "prettier": "^3.2.4"
