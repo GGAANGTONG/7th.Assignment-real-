@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>로그인 인증</title>
+  </head>
+  <body>
+    <div>
+      <script>
+        const validationEmailPrompt = prompt(
+          '이메일에 전송된 인증 번호를 입력해 주세요:'
+        );
+        validationEmailPrompt.value = req.body[email];
+        return res.redirect('/signIn-validated');
+      </script>
+    </div>
+  </body>
+</html>

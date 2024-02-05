@@ -19,6 +19,7 @@ model Users {
   resume Resume[]
   accessToken AccessToken[]
   refreshToken RefreshToken?
+  authentication Authentication?
 
   @@map("Users")
 }
@@ -80,4 +81,12 @@ enum Status {
   INTERVIEW1
   INTERVIEW2
   FINAL_PASS
+}
+
+model Authentication {
+  authId Int @id @default(autoincrement()) @map("AuthId")
+  userId Int @unique
+  generatedAuthNumber Int @unique
+
+  user Users @relation(fields: [userId], references: [userId], onDelete: Cascade)
 }

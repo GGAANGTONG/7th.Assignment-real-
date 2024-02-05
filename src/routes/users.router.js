@@ -4,7 +4,8 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import errorHandlerMiddleware from '../middlewares/error-handler.middleware.js';
+import ejs from 'ejs';
+import path from 'path';
 import { transporter } from './nodemailer.js';
 import info from './nodemailer.js';
 import axios from 'axios';
@@ -15,6 +16,8 @@ dotenv.config();
 const app = express();
 const router = express.Router();
 app.use(cookieParser());
+app.set('view engine', 'ejs');
+app.set('views', path.join('src/views', 'views'));
 
 const ACCESS_TOKEN_SECRET_KEY = process.env.ACCESS_TOKEN_SECRET_KEY;
 const REFRESH_TOKEN_SECRET_KEY = process.env.REFRESH_TOKEN_SECRET_KEY;
@@ -58,7 +61,7 @@ router.post('/signUp', async (req, res, next) => {
         password: hashedPassword,
       },
     });
-    const userInfo = await prisma.userInfos.create({
+    await prisma.userInfos.create({
       data: {
         userId: user.userId,
         name,
@@ -78,7 +81,7 @@ router.post('/signUp', async (req, res, next) => {
   }
 });
 
-//로그인 API
+//로그인 인증 API
 router.post('/signIn', async (req, res, next) => {
   try {
     const { email, password } = req.body;
@@ -102,7 +105,52 @@ router.post('/signIn', async (req, res, next) => {
 
     const generatedAuthNumber = Math.floor(Math.random() * 10000 + 1);
 
-    info(email, generatedAuthNumber);
+    //인증 정보 db보관 전 기존 이메일 2차 인증 정보가 db안에 있을 경우 삭제
+    const pastAuthData = await prisma.authentication.findUnique({
+      where: {
+        userId: user.userId,
+      },
+    });
+    if (pastAuthData) {
+      await prisma.authentication.delete({
+        where: {
+          userId: user.userId,
+        },
+      });
+    }
+    //인증 성공하기 전까지 인증 정보 db보관
+    await prisma.authentication.create({
+      data: {
+        userId: user.userId,
+        generatedAuthNumber,
+      },
+    });
+
+    const authNumberDB = await prisma.authentication.findFirst({
+      where: {
+        userId: user.userId,
+        generatedAuthNumber,
+      },
+    });
+    //로그인 시도자가 입력하여 넘어온 난수 입력값을 확인하는 로직
+    //AuthNumberFromEmail은 프론트엔드에서(클라이언트로부터) 넘어와야 하는 값
+    const validationMail = info(email, generatedAuthNumber);
+    const AuthNumberFromEmail = generatedAuthNumber;
+    console.log('s1', authNumberDB);
+    console.log('s2', AuthNumberFromEmail);
+
+    //이메일 인증
+    if (authNumberDB.generatedAuthNumber !== AuthNumberFromEmail) {
+      return res.status(400).json({ error: '인증번호가 일치하지 않습니다.' });
+    } else if (authNumberDB === AuthNumberFromEmail) {
+      //지금 생각해 보니, 인증을 안하고 재 로그인을 시도하는 사람을 구별해내기 위해서는 userId도 같이 받아야 할 거 같다.
+      await prisma.authentication.delete({
+        where: {
+          userId: user.userId,
+          generatedAuthNumber,
+        },
+      });
+    }
 
     const accessToken = jwt.sign(
       {
@@ -158,8 +206,12 @@ router.post('/signIn', async (req, res, next) => {
     return res.status(200).json({
       message: '로그인에 성공하였습니다.',
     });
+
+    //클라이언트 요청 이벤트에 대한 서버 처리
+    //res.render() 부분은 내가 아니라 프론트에서 처리해야 할 부분임. 일단은 건들지 말자
+    // res.render('validation.ejs');
+    //추가 비밀번호 인증을 위해(req-res를 한번 더 해야해서) validation.ejs로 리다이렉트
   } catch (error) {
-    console.error(error);
     next(error);
   }
 });
