@@ -23,6 +23,49 @@ const REFRESH_TOKEN_SECRET_KEY = process.env.REFRESH_TOKEN_SECRET_KEY;
 const validationTest = joi.object({
   email: joi.string().email(),
 });
+
+/**
+ * @swagger
+ * /users/SignIn-Kakao:
+ *    post:
+ *      summary: 로그인 API
+ *      description: 카카오 로그인이나 이메일/패스워드를 통해 로그인을 시도하는 API
+ *      parameters:
+ *       - in: body
+ *         type: object
+ *         description: 로그인 요청 body data
+ *         schema:
+ *           properties:
+ *             email:
+ *               type: string
+ *               description: 이메일
+ *               example: 'a@com'
+ *               required: true
+ *             password:
+ *               type: string
+ *               description: 비밀번호
+ *               example: 'password'
+ *               required: true
+ *
+ *      responses:
+ *        '200':
+ *          description: 정상적인 로그인 완료
+ *          content:
+ *            application/json:
+ *              schema:
+ *                type: object
+ *                properties:
+ *                  message:
+ *                    type: string
+ *                    description: 성공적으로 로그인 하였습니다.
+ *                  email:
+ *                    type: string
+ *                    description: 사용자 이메일
+ *              example:
+ *                message: '성공적으로 로그인 하였습니다.'
+ *                email: 'a@com'
+ */
+
 //회원가입 API
 router.post('/signUp', async (req, res, next) => {
   try {

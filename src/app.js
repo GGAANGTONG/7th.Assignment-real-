@@ -4,7 +4,7 @@ import UsersRouter from './routes/users.router.js';
 import ResumeRouter from './routes/resume.router.js';
 import errorHandlerMiddleware from './middlewares/error-handler.middleware.js';
 import cookieParser from 'cookie-parser';
-import jwt from 'jsonwebtoken';
+import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { prisma } from './utils/prisma/index.js';
 import bcrypt from 'bcrypt';
@@ -14,6 +14,20 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 const PORT = process.env.PORT;
+
+const options = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: 'Resume API',
+      version: '1.0.0',
+    },
+  },
+  apis: ['./src/routes/*.js'], // files containing annotations as above
+};
+
+const openapiSpecification = swaggerJsdoc(options);
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpecification));
 
 const admin = await prisma.users.findUnique({
   where: {
