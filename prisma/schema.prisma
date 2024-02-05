@@ -28,7 +28,6 @@ model UserInfos {
   userInfoId Int @id @default(autoincrement()) @map("UserInfoId")
   userId Int @unique @map("UserId")
   name String @map("Name")
-  passwordCheck String @map("PasswordCheck")
 
   user Users @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
@@ -37,36 +36,31 @@ model UserInfos {
 
 model RefreshToken {
   userId Int @id @unique @map("userId")
-  refreshToken String @map("RefreshToken") @unique
+  refreshToken String @db.Text @map("RefreshToken")
   ip String @map("Ip")
   useragent String @map("UserAgent")
 
-
-  accessToken AccessToken[]
   user Users @relation(fields: [userId], references: [userId], onDelete: Cascade)
 
   @@map("RefreshToken")
 }
-
+//지금 생각해보니 어차피 userId를 외래키로 다 연결돼있어서 굳이 서로 연관관계를 안지어줘도 됨(직접 만나서 상호작용하 할 것도 아니라)
 model AccessToken {
   accessTokenId Int @id @default(autoincrement()) @map("AccessTokenId") 
   userId Int @map("UserId")
-  accessToken String @map("AccessToken")
+  accessToken String @db.Text  @map("AccessToken")
   reacquired Boolean @map("Reacquired")
   currentToken Boolean @map("CurrentToken")
-  refreshToken String @map("RefreshToken")
 
 
   user Users @relation(fields: [userId], references: [userId], onDelete: Cascade)
-  refreshTokens RefreshToken @relation(fields: [refreshToken], references: [refreshToken], onDelete: Cascade)
-  @@map("AccessToken")
 }
 
 model Resume {
   resumeId Int @id @default(autoincrement()) @map("resumeId")
   userId Int @map("UserId")
   title String @map("Title")
-  introduction String @db.Text @map("Introduction")
+  introduction String @map("Introduction")
   author String @map("Author")
   status Status @default(APPLY) @map("Status")
   createdAt DateTime @default(now()) @map("CreatedAt")

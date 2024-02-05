@@ -132,7 +132,6 @@ export default async function (req, res, next) {
             accessToken: newAccessToken,
             reacquired: true,
             currentToken: true,
-            refreshToken: refreshTokenProcessed,
           },
         });
       } else {

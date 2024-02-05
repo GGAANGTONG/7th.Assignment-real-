@@ -15,7 +15,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 const app = express();
 const router = express.Router();
-app.use(cookieParser());
 app.set('view engine', 'ejs');
 app.set('views', path.join('src/views', 'views'));
 
@@ -65,7 +64,6 @@ router.post('/signUp', async (req, res, next) => {
       data: {
         userId: user.userId,
         name,
-        passwordCheck,
       },
     });
 
@@ -136,8 +134,6 @@ router.post('/signIn', async (req, res, next) => {
     //AuthNumberFromEmail은 프론트엔드에서(클라이언트로부터) 넘어와야 하는 값
     const validationMail = info(email, generatedAuthNumber);
     const AuthNumberFromEmail = generatedAuthNumber;
-    console.log('s1', authNumberDB);
-    console.log('s2', AuthNumberFromEmail);
 
     //이메일 인증
     if (authNumberDB.generatedAuthNumber !== AuthNumberFromEmail) {
@@ -170,7 +166,6 @@ router.post('/signIn', async (req, res, next) => {
       REFRESH_TOKEN_SECRET_KEY,
       { expiresIn: '7d' }
     );
-
     const DBrefreshToken = await prisma.refreshToken.findFirst({
       where: {
         userId: user.userId,
@@ -178,6 +173,19 @@ router.post('/signIn', async (req, res, next) => {
     });
     if (DBrefreshToken) {
       await prisma.refreshToken.delete({
+        where: {
+          userId: user.userId,
+        },
+      });
+    }
+    const DBaccessToken = await prisma.accessToken.findFirst({
+      where: {
+        userId: user.userId,
+      },
+    });
+
+    if (DBaccessToken) {
+      await prisma.accessToken.deleteMany({
         where: {
           userId: user.userId,
         },
@@ -195,7 +203,8 @@ router.post('/signIn', async (req, res, next) => {
     await prisma.accessToken.create({
       data: {
         userId: user.userId,
-        refreshToken,
+        //데이터베이스 숙련도 이슈로 인해 빼기로 함. 어차피 userId로 서로 연관돼 있기 때문에 큰 문제 없을 듯
+        // refreshToken,
         accessToken,
         reacquired: false,
         currentToken: true,
@@ -203,6 +212,7 @@ router.post('/signIn', async (req, res, next) => {
     });
     res.cookie('accessToken', `Bearer ${accessToken}`);
     res.cookie('refreshToken', `Bearer ${refreshToken}`);
+    res.header('userId', user.userId);
     return res.status(200).json({
       message: '로그인에 성공하였습니다.',
     });
