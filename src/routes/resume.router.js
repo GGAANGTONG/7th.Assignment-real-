@@ -1,6 +1,5 @@
 import express from 'express';
 import authMiddleware from '../middlewares/auth.middleware.js';
-import { prisma } from '../utils/prisma/index.js';
 import { ResumeController } from '../controller/resume.controller.js';
 import { ResumeService } from '../service/resume.service.js';
 import { ResumeRepository } from '../repositories/resume.repository.js';
@@ -9,7 +8,7 @@ const router = express.Router();
 
 // PostsController의 인스턴스를 생성합니다.
 
-const resumeRepository = new ResumeRepository(prisma);
+const resumeRepository = new ResumeRepository();
 const resumeService = new ResumeService(resumeRepository);
 const resumeController = new ResumeController(resumeService);
 /** 이력서 목록 조회 API **/

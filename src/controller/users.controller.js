@@ -1,7 +1,6 @@
 export class UsersController {
-  constructor(usersService, joi) {
+  constructor(usersService) {
     this.usersService = usersService;
-    this.joi = joi;
   }
   //1.회원가입
   signUp = async (req, res, next) => {
@@ -29,8 +28,18 @@ export class UsersController {
     // ORM인 Prisma에서 Posts 모델의 findMany 메서드를 사용해 데이터를 요청합니다.
     try {
       const { email, password } = req.body;
-      const signIn = await this.usersService.signUp(email, password);
+      const ip = req.connection.remoteAddress;
+      const useragent = req.headers['user-agent'] || 'Unknown';
+      const signIn = await this.usersService.signIn(
+        email,
+        password,
+        ip,
+        useragent
+      );
+      const { accessToken, refreshToken } = signIn;
 
+      res.cookie('accessToken', `Bearer ${accessToken}`);
+      res.cookie('refreshToken', `Bearer ${refreshToken}`);
       return res.status(200).json({ signIn });
     } catch (error) {
       next(error);
@@ -52,6 +61,10 @@ export class UsersController {
 
       const kakaoSignIn = await this.usersService.kakaoSignIn(email);
 
+      const { accessToken, refreshToken } = kakaoSignIn;
+
+      res.cookie('accessToken', `Bearer ${accessToken}`);
+      res.cookie('refreshToken', `Bearer ${refreshToken}`);
       return res.status(200).json({ kakaoSignIn });
     } catch (error) {
       next(error);

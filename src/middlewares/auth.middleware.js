@@ -1,7 +1,7 @@
 import express from 'express';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../utils/prisma/index.js';
-import errorHandlerMiddleware from '../middlewares/error-handler.middleware.js';
+import { dataSource } from '../typeorm/index.js';
 import dotenv from 'dotenv';
 
 const app = express();
@@ -47,12 +47,12 @@ export default async function (req, res, next) {
       if (!userId)
         return res.status(401).json({ error: '승인되지 않은 접근입니다.' });
       //그리고 그 userId와 일치하는 userId를 가진 user를 찾아냄
-      const user = await prisma.users.findFirst({
+      const user = await dataSource.getRepository('users').findOne({
         where: {
           userId: +userId,
         },
       });
-      const userInfo = await prisma.userInfos.findFirst({
+      const userInfo = await dataSource.getRepository('userInfos').findOne({
         where: {
           userId: +userId,
         },
@@ -90,11 +90,13 @@ export default async function (req, res, next) {
       }
 
       //3. 복호화된 refreshtoken 정보가 db에 저장된 사용자 refreshtoken 정보와 맞는지 확인
-      const DBrefreshToken = await prisma.refreshToken.findFirst({
-        where: {
-          userId: verifiedRefreshToken.userId,
-        },
-      });
+      const DBrefreshToken = await dataSource
+        .getRepository('refreshToken')
+        .findOne({
+          where: {
+            userId: verifiedRefreshToken.userId,
+          },
+        });
 
       if (DBrefreshToken.ip !== ip || DBrefreshToken.useragent !== useragent) {
         return res.status(401).json({ error: '잘못된 접근입니다.' });
@@ -111,29 +113,31 @@ export default async function (req, res, next) {
         { expiresIn: '12h' }
       );
 
-      const availableAccessToken = await prisma.accessToken.findFirst({
-        where: { userId: verifiedRefreshToken.userId, currentToken: true },
-      });
+      const availableAccessToken = await dataSource
+        .getRepository('accessToken')
+        .findOne({
+          where: { userId: verifiedRefreshToken.userId, currentToken: true },
+        });
       if (availableAccessToken) {
-        await prisma.accessToken.update({
-          where: {
+        const data1 = {
+          currentToken: false,
+        };
+        await dataSource.getRepository('users').update(
+          {
             accessTokenId: availableAccessToken.accessTokenId,
             userId: verifiedRefreshToken.userId,
             currentToken: true,
           },
-          data: {
-            currentToken: false,
-          },
-        });
+          data1
+        );
 
-        await prisma.accessToken.create({
-          data: {
-            userId: verifiedRefreshToken.userId,
-            accessToken: newAccessToken,
-            reacquired: true,
-            currentToken: true,
-          },
-        });
+        const data2 = {
+          userId: verifiedRefreshToken.userId,
+          accessToken: newAccessToken,
+          reacquired: true,
+          currentToken: true,
+        };
+        await dataSource.getRepository('accessToken').insert(data2);
       } else {
         return res.status(401).json({ error: '잘못된 접근입니다.' });
       }
@@ -142,12 +146,12 @@ export default async function (req, res, next) {
 
       if (!userId) return res.status(401).json({ error: '로그인을 해주세요!' });
 
-      const user = await prisma.users.findFirst({
+      const user = await dataSource.getRepository('users').findOne({
         where: {
           userId: +userId,
         },
       });
-      const userInfo = await prisma.userInfos.findFirst({
+      const userInfo = await dataSource.getRepository('userInfos').findOne({
         where: {
           userId: +userId,
         },

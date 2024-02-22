@@ -5,7 +5,8 @@ import errorHandlerMiddleware from './middlewares/error-handler.middleware.js';
 import cookieParser from 'cookie-parser';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
-import { prisma } from './utils/prisma/index.js';
+// import { prisma } from './utils/prisma/index.js';
+import { dataSource } from './typeorm/index.js';
 import bcrypt from 'bcrypt';
 
 dotenv.config();
@@ -24,11 +25,12 @@ const options = {
   },
   apis: ['./src/routes/*.js'], // files containing annotations as above
 };
-
 const openapiSpecification = swaggerJsdoc(options);
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(openapiSpecification));
 
-const admin = await prisma.users.findUnique({
+await dataSource.initialize();
+
+const admin = await dataSource.getRepository('users').findOne({
   where: {
     userId: 1,
     email: 'qkrds0914@gmail.com',
@@ -36,19 +38,18 @@ const admin = await prisma.users.findUnique({
 });
 const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 15);
 if (!admin) {
-  const user = await prisma.users.create({
-    data: {
-      userId: 1,
-      email: 'qkrds0914@gmail.com',
-      password: hashedPassword,
-    },
-  });
-  await prisma.userInfos.create({
-    data: {
-      userId: user.userId,
-      name: 'admin',
-    },
-  });
+  const data = {
+    userId: 1,
+    email: 'qkrds0914@gmail.com',
+    password: hashedPassword,
+  };
+  const user = await dataSource.getRepository('users').insert(data);
+
+  const data1 = {
+    userId: user.userId,
+    name: 'admin',
+  };
+  await dataSource.getRepository('userInfos').insert(data1);
 }
 
 app.get('/', (req, res) => {

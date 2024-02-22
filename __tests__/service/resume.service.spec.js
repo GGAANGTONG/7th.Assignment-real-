@@ -10,7 +10,7 @@ let mockResumeRepository = {
   deleteResume: jest.fn(),
 };
 
-let resumeService = new ResumeService(mockResumeRepository);
+let mockResumeService = new ResumeService(mockResumeRepository);
 
 describe('resume Repository Unit Test', () => {
   //각 테스트가 실행되기 전 모든 Mock 초기화
@@ -23,19 +23,19 @@ describe('resume Repository Unit Test', () => {
   test('findResumeList Method', async () => {
     // findMany Mock의 Return 값을 "findMany String"으로 설정합니다.
     const mockReturn = 'findMany String';
-    mockPrisma.resume.findMany.mockReturnValue(mockReturn);
+    mockResumeRepository.findResumeList(mockReturn);
     const findResumeListParams = {
       orderKey: 'userId',
       orderValue: 'asc',
     };
     // resumeRepository의 findAllPosts Method를 호출합니다.
-    const resume = await resumeRepository.findResumeList(
+    const resume = await mockResumeRepository.findResumeList(
       findResumeListParams.orderKey,
       findResumeListParams.orderValue
     );
 
     // prisma.resumes의 findMany은 1번만 호출 되었습니다.
-    expect(mockPrisma.resume.findMany).toHaveBeenCalledTimes(1);
+    expect(mockResumeService.findMany).toHaveBeenCalledTimes(1);
 
     // mockPrisma의 Return과 출력된 findMany Method의 값이 일치하는지 비교합니다.
     expect(resume).toEqual(mockReturn);
@@ -45,7 +45,7 @@ describe('resume Repository Unit Test', () => {
   test('findResume Method', async () => {
     // findMany Mock의 Return 값을 "findMany String"으로 설정합니다.
     const mockReturn = 'find Method Return';
-    mockPrisma.resume.findFirst.mockReturnValue(mockReturn);
+    mockResumeService.findFirst.mockReturnValue(mockReturn);
     const findResumeParams = {
       userId: 1,
       resumeId: 1,
@@ -57,7 +57,7 @@ describe('resume Repository Unit Test', () => {
 
     // prisma.resumes의 findFirst은 1번만 호출 되었습니다.
 
-    expect(mockPrisma.resume.findFirst).toHaveBeenCalledTimes(1);
+    expect(mockResumeService.findFirst).toHaveBeenCalledTimes(1);
 
     // mockPrisma의 Return과 출력된 findMany Method의 값이 일치하는지 비교합니다.
     expect(resume).toBe(mockReturn);
@@ -74,7 +74,7 @@ describe('resume Repository Unit Test', () => {
       title: 'createPostTitle',
       introduction: 'createPostIntro',
     };
-    mockPrisma.resume.create.mockReturnValue(createResumeParams);
+    mockResumeService.create.mockReturnValue(createResumeParams);
     // resumeRepository의 createPost Method를 실행합니다.
     const createResumeData = await resumeRepository.createResume(
       createResumeParams.userId,
@@ -91,10 +91,10 @@ describe('resume Repository Unit Test', () => {
     });
 
     // resumeRepository의 createPost Method를 실행했을 때, prisma.resumes의 create를 1번 실행합니다.
-    expect(mockPrisma.resume.create).toHaveBeenCalledTimes(1);
+    expect(mockResumeService.create).toHaveBeenCalledTimes(1);
 
     // resumeRepository의 createPost Method를 실행했을 때, prisma.resumes의 create를 아래와 같은 값으로 호출합니다.
-    expect(mockPrisma.resume.create).toHaveBeenCalledWith({
+    expect(mockResumeService.create).toHaveBeenCalledWith({
       data: {
         userId: createResumeParams.userId,
         author: createResumeParams.name,
@@ -125,8 +125,8 @@ describe('resume Repository Unit Test', () => {
       status: 'APPLY',
     };
 
-    mockPrisma.resume.findFirst.mockReturnValue(ResumeParams);
-    mockPrisma.resume.update.mockReturnValue(updateResumeParams);
+    mockResumeService.findFirst.mockReturnValue(ResumeParams);
+    mockResumeService.update.mockReturnValue(updateResumeParams);
 
     // resumeRepository의 createPost Method를 실행합니다.
     const updateResumeData = await resumeRepository.updateResume(
@@ -147,10 +147,10 @@ describe('resume Repository Unit Test', () => {
     });
 
     // resumeRepository의 updatePost Method를 실행했을 때, prisma.resumes의 update를 1번 실행합니다.
-    expect(mockPrisma.resume.update).toHaveBeenCalledTimes(1);
+    expect(mockResumeService.update).toHaveBeenCalledTimes(1);
 
     // resumeRepository의 createPost Method를 실행했을 때, prisma.resumes의 update를 아래와 같은 값으로 호출합니다.
-    expect(mockPrisma.resume.update).toHaveBeenCalledWith({
+    expect(mockResumeService.update).toHaveBeenCalledWith({
       where: {
         resumeId: updateResumeParams.resumeId,
         userId: updateResumeParams.userId,
@@ -172,7 +172,7 @@ describe('resume Repository Unit Test', () => {
   //5. 게시물 삭제
   test('deleteResume Method', async () => {
     const mockReturn = { message: '이력서가 성공적으로 삭제되었습니다.' };
-    mockPrisma.resume.delete.mockReturnValue(mockReturn);
+    mockResumeService.delete.mockReturnValue(mockReturn);
 
     const deleteResumeParams = {
       userId: 1,
@@ -189,10 +189,10 @@ describe('resume Repository Unit Test', () => {
     expect(deleteResumeData).toEqual(mockReturn);
 
     // resumeRepository의 updatePost Method를 실행했을 때, prisma.resumes의 update를 1번 실행합니다.
-    expect(mockPrisma.resume.delete).toHaveBeenCalledTimes(1);
+    expect(mockResumeService.delete).toHaveBeenCalledTimes(1);
 
     // resumeRepository의 createPost Method를 실행했을 때, prisma.resumes의 update를 아래와 같은 값으로 호출합니다.
-    expect(mockPrisma.resume.delete).toHaveBeenCalledWith({
+    expect(mockResumeService.delete).toHaveBeenCalledWith({
       where: {
         userId: deleteResumeParams.userId,
         resumeId: deleteResumeParams.resumeId,
